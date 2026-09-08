@@ -14,6 +14,9 @@ const nameEl = $('name');
 const nameHint = $('nameHint');
 const isolateEl = $('isolate');
 const stripEl = $('stripSchemes');
+const desktopEl = $('desktop');
+const modeRow = $('modeRow');
+const modeLink = $('modeLink');
 const cloneBtn = $('clone');
 const cloneLabel = cloneBtn.querySelector('.btn-label');
 const resultCard = $('result');
@@ -24,6 +27,44 @@ const logEl = $('log');
 
 let selected = null; // { path, name, bundleId, isElectron, icon }
 let clonedName = null;
+let clonedDest = null;
+let plat = { isWindows: false, isMac: true, extension: '.app' };
+
+// ---------- platform ----------
+
+// The two platforms differ enough in vocabulary and options that the UI adapts
+// rather than showing macOS wording to Windows users.
+async function initPlatform() {
+  try {
+    plat = await window.dualizer.getPlatform();
+  } catch {
+    return;
+  }
+  if (!plat.isWindows) return;
+
+  $('tagline').textContent =
+    'Run two independent copies of a Windows app — separate data, separate login.';
+  $('dropHint').innerHTML = 'Drag a program here <span>or</span>';
+  $('browse').textContent = 'Browse Programs…';
+  $('reveal').textContent = 'Show in Explorer';
+  modeRow.classList.remove('hidden');
+  $('desktopOpt').classList.remove('hidden');
+  $('stripOpt').classList.add('hidden'); // URL schemes are registry-based on Windows
+  syncMode();
+}
+
+// In shortcut-only mode nothing is copied, so there is no app.asar to inject.
+function syncMode() {
+  if (!plat.isWindows) return;
+  const link = modeLink.checked;
+  isolateEl.disabled = link;
+  isolateEl.parentElement.classList.toggle('is-disabled', link);
+}
+
+if (modeRow) {
+  modeRow.addEventListener('change', syncMode);
+}
+initPlatform();
 
 // ---------- selection ----------
 
@@ -32,9 +73,18 @@ function select(app) {
   selected = app;
   if (app.icon) appIcon.src = app.icon;
   appNameEl.textContent = app.name;
-  appIdEl.textContent = app.bundleId || 'unknown identifier';
-  appBadge.textContent = app.isElectron ? 'Electron · full isolation' : 'Native · identity only';
-  appBadge.className = 'badge ' + (app.isElectron ? 'electron' : 'native');
+  appIdEl.textContent = app.bundleId || app.version || 'unknown identifier';
+  if (app.isElectron && app.hasAsarIntegrity) {
+    // We cannot patch such an app, so isolation comes from the shortcut alone.
+    appBadge.textContent = 'Electron · isolated via shortcut';
+    appBadge.className = 'badge electron';
+  } else if (app.isElectron) {
+    appBadge.textContent = 'Electron · full isolation';
+    appBadge.className = 'badge electron';
+  } else {
+    appBadge.textContent = plat.isWindows ? 'Not Electron · limited' : 'Native · identity only';
+    appBadge.className = 'badge native';
+  }
 
   dropEmpty.classList.add('hidden');
   dropFilled.classList.remove('hidden');
@@ -76,11 +126,20 @@ drop.addEventListener('drop', async (e) => {
   const file = e.dataTransfer.files[0];
   if (!file) return;
   const p = file.path || '';
-  if (!p.endsWith('.app')) {
-    flashHint('That doesn’t look like an .app bundle.');
+  if (!p.toLowerCase().endsWith(plat.extension)) {
+    flashHint(
+      plat.isWindows
+        ? 'That doesn’t look like a program (.exe).'
+        : 'That doesn’t look like an .app bundle.'
+    );
     return;
   }
-  select(await window.dualizer.inspectApp(p));
+  const info = await window.dualizer.inspectApp(p);
+  if (!info) {
+    flashHint('Could not read that app.');
+    return;
+  }
+  select(info);
 });
 
 // ---------- validation ----------
@@ -121,6 +180,8 @@ cloneBtn.addEventListener('click', async () => {
     name,
     isolate: isolateEl.checked,
     stripSchemes: stripEl.checked,
+    mode: plat.isWindows && modeLink.checked ? 'link' : 'clone',
+    desktop: plat.isWindows && desktopEl.checked,
   });
 
   cloneBtn.classList.remove('busy');
@@ -128,11 +189,22 @@ cloneBtn.addEventListener('click', async () => {
   cloneBtn.disabled = false;
 
   resultCard.classList.remove('hidden');
+  const notes = $('resultNotes');
+  notes.classList.add('hidden');
+  notes.textContent = '';
+
   if (result.ok) {
     resultIcon.textContent = '✓';
     resultIcon.className = 'result-badge ok';
     resultText.textContent = `"${name}" is ready.`;
     doneActions.classList.remove('hidden');
+    clonedDest = result.dest || null;
+    // Link mode copies nothing, so there is no clone folder to reveal.
+    $('reveal').classList.toggle('hidden', plat.isWindows && !clonedDest);
+    if (result.warnings && result.warnings.length) {
+      notes.textContent = result.warnings.join(' · ');
+      notes.classList.remove('hidden');
+    }
   } else {
     resultIcon.textContent = '✕';
     resultIcon.className = 'result-badge err';
@@ -146,7 +218,9 @@ $('launch').addEventListener('click', () => {
   if (clonedName) window.dualizer.launchApp(clonedName);
 });
 $('reveal').addEventListener('click', () => {
-  if (selected && clonedName) {
+  if (clonedDest) {
+    window.dualizer.revealApp(clonedDest);
+  } else if (selected && clonedName && !plat.isWindows) {
     const dir = selected.path.slice(0, selected.path.lastIndexOf('/'));
     window.dualizer.revealApp(`${dir}/${clonedName}.app`);
   }

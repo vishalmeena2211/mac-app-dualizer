@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:" />
-  <title>Mac App Dualizer</title>
+  <title>App Dualizer</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -20,7 +20,7 @@
       </div>
       <div>
         <h1>App Dualizer</h1>
-        <p class="sub">Run two independent copies of a Mac app — separate data, separate login.</p>
+        <p class="sub" id="tagline">Run two independent copies of an app — separate data, separate login.</p>
       </div>
     </header>
 
@@ -33,7 +33,7 @@
           <svg viewBox="0 0 24 24" width="26" height="26" class="drop-icon">
             <path d="M12 16V4m0 0L7 9m5-5 5 5M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2" />
           </svg>
-          <p>Drag an app here <span>or</span></p>
+          <p id="dropHint">Drag an app here <span>or</span></p>
           <button id="browse" class="btn ghost">Browse Applications…</button>
         </div>
 
@@ -59,6 +59,24 @@
         <small id="nameHint" class="hint"></small>
       </label>
 
+      <!-- Windows only: copying the app vs. just making an isolated shortcut. -->
+      <div id="modeRow" class="options hidden">
+        <label class="opt">
+          <input id="modeClone" type="radio" name="mode" value="clone" checked />
+          <span class="opt-body">
+            <span class="opt-title">Full clone</span>
+            <span class="opt-desc">Copies the app so it gets its own name and icon. Needs repair after the app updates itself.</span>
+          </span>
+        </label>
+        <label class="opt">
+          <input id="modeLink" type="radio" name="mode" value="link" />
+          <span class="opt-body">
+            <span class="opt-title">Shortcut only</span>
+            <span class="opt-desc">Nothing is copied, so app updates never break it — but both instances share one icon.</span>
+          </span>
+        </label>
+      </div>
+
       <div class="options">
         <label class="opt">
           <input id="isolate" type="checkbox" checked />
@@ -67,11 +85,18 @@
             <span class="opt-desc">Gives the clone its own login. Recommended.</span>
           </span>
         </label>
-        <label class="opt">
+        <label class="opt" id="stripOpt">
           <input id="stripSchemes" type="checkbox" />
           <span class="opt-body">
             <span class="opt-title">Remove custom URL schemes</span>
             <span class="opt-desc">Stops the clone from competing for deep links.</span>
+          </span>
+        </label>
+        <label class="opt hidden" id="desktopOpt">
+          <input id="desktop" type="checkbox" />
+          <span class="opt-body">
+            <span class="opt-title">Add a Desktop shortcut</span>
+            <span class="opt-desc">A Start Menu entry is always created.</span>
           </span>
         </label>
       </div>
@@ -92,6 +117,7 @@
       <div id="doneActions" class="result-actions hidden">
         <button id="launch" class="btn ghost small">Launch clone</button>
         <button id="reveal" class="btn ghost small">Show in Finder</button>
+        <p id="resultNotes" class="notes hidden"></p>
       </div>
       <details class="log-wrap">
         <summary>Show log</summary>

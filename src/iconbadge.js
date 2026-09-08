@@ -15,6 +15,7 @@
 //
 const fs = require('node:fs');
 const path = require('node:path');
+const { eachBadgePixel, hexToRgb, MIN_BADGE_WIDTH } = require('./badge');
 
 function loadPngjs() {
   const starts = [__dirname, process.cwd()];
@@ -40,13 +41,6 @@ function arg(name, def) {
   return i !== -1 && process.argv[i + 1] ? process.argv[i + 1] : def;
 }
 
-function hexToRgb(hex) {
-  const h = hex.replace('#', '');
-  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
-  const n = parseInt(full, 16);
-  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
-}
-
 const dir = arg('--dir');
 const color = arg('--color', '#d97757');
 if (!dir || !fs.existsSync(dir)) {
@@ -58,30 +52,14 @@ const { r, g, b } = hexToRgb(color);
 function badge(file) {
   const png = PNG.sync.read(fs.readFileSync(file));
   const { width, height } = png;
-  if (width < 32) return; // too small to matter
-  const R = Math.round(width * 0.22);
-  const cx = width - R - Math.round(width * 0.07);
-  const cy = height - R - Math.round(height * 0.07);
-  const ring = Math.max(2, Math.round(R * 0.16));
-  for (let y = Math.max(0, cy - R - ring); y < Math.min(height, cy + R + ring); y++) {
-    for (let x = Math.max(0, cx - R - ring); x < Math.min(width, cx + R + ring); x++) {
-      const dx = x - cx;
-      const dy = y - cy;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist > R) continue;
-      const idx = (width * y + x) << 2;
-      if (dist > R - ring) {
-        png.data[idx] = 255;
-        png.data[idx + 1] = 255;
-        png.data[idx + 2] = 255;
-      } else {
-        png.data[idx] = r;
-        png.data[idx + 1] = g;
-        png.data[idx + 2] = b;
-      }
-      png.data[idx + 3] = 255;
-    }
-  }
+  if (width < MIN_BADGE_WIDTH) return; // too small to matter
+  eachBadgePixel(width, height, (x, y, isRing) => {
+    const idx = (width * y + x) << 2;
+    png.data[idx] = isRing ? 255 : r;
+    png.data[idx + 1] = isRing ? 255 : g;
+    png.data[idx + 2] = isRing ? 255 : b;
+    png.data[idx + 3] = 255;
+  });
   fs.writeFileSync(file, PNG.sync.write(png));
 }
 

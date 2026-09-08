@@ -1,17 +1,20 @@
 {
   "name": "mac-app-dualizer",
-  "version": "1.0.0",
-  "description": "Clone any macOS app to run a second, fully independent instance with its own data directory and login. CLI + Electron GUI.",
+  "version": "1.1.0",
+  "description": "Clone any macOS or Windows app to run a second, fully independent instance with its own data directory and login. CLI + Electron GUI.",
   "main": "src/main.js",
   "bin": {
     "dualize": "bin/dualize.js"
   },
   "scripts": {
     "start": "electron .",
-    "clone": "bash clone-app.sh"
+    "test": "node --test",
+    "clone": "bash clone-app.sh",
+    "clone:win": "powershell -ExecutionPolicy Bypass -File clone-app.ps1"
   },
   "keywords": [
     "macos",
+    "windows",
     "electron",
     "clone",
     "dual",
@@ -21,7 +24,13 @@
     "claude-code"
   ],
   "author": "vishalmeena2211",
+  "contributors": [
+    "Shivam Singh (Windows support)"
+  ],
   "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
   "homepage": "https://github.com/vishalmeena2211/mac-app-dualizer#readme",
   "repository": {
     "type": "git",
