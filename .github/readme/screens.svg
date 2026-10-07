@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1856" height="994" viewBox="0 0 1856 994" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="icon" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2c2c31"/><stop offset="1" stop-color="#1b1b1e"/></linearGradient>
+  </defs>
+  <rect width="1856" height="994" fill="#f4f4f7"/>
+
+  <!-- panel 1: the CLI, eight steps -->
+  <g transform="translate(40,40)">
+    <rect width="1000" height="914" rx="14" fill="#161618" stroke="#33333a"/>
+    <circle cx="26" cy="24" r="7" fill="#e5686a"/><circle cx="48" cy="24" r="7" fill="#e0a83b"/><circle cx="70" cy="24" r="7" fill="#56b877"/>
+    <text x="500" y="29" font-size="15" fill="#9d9da8" text-anchor="middle">clone-app.sh</text>
+    <g font-family="SF Mono, Menlo, Monaco, Courier New, monospace" font-size="18" fill="#cfcfd6" >
+      <text x="28" y="82"><tspan fill="#56b877">$</tspan> ./clone-app.sh --source "/Applications/Claude.app" --name "Claude 2"</text>
+      <text x="28" y="110">Cloning 'Claude' -> 'Claude 2'</text>
+      <text x="50" y="138">source : /Applications/Claude.app</text>
+      <text x="50" y="166">dest   : /Applications/Claude 2.app</text>
+      <text x="50" y="194">id     : com.anthropic.claudefordesktop.claude-2</text>
+      <text x="50" y="222">tint   : <tspan fill="#d97757">#d97757</tspan></text>
+      <text x="28" y="278"><tspan fill="#d97757">[1/8]</tspan> Copying app bundle...</text>
+      <text x="28" y="306"><tspan fill="#d97757">[2/8]</tspan> Setting new identity (bundle id + name)...</text>
+      <text x="28" y="334"><tspan fill="#d97757">[3/8]</tspan> Electron app detected.</text>
+      <text x="28" y="362"><tspan fill="#d97757">[4/8]</tspan> Renaming Electron helper apps...</text>
+      <text x="28" y="390"><tspan fill="#d97757">[5/8]</tspan> Injecting isolated data directory...</text>
+      <text x="93" y="418">snippet injected into .vite/build/index.pre.js</text>
+      <text x="93" y="446">unpacked layout preserved (10 files outside the archive)</text>
+      <text x="93" y="474">file permissions restored on 3 of 10 unpacked files</text>
+      <text x="93" y="502">Resources/app.asar: hash updated to 4a69c516a4af…</text>
+      <text x="28" y="530"><tspan fill="#d97757">[6/8]</tspan> Badging clone icon (#d97757)...</text>
+      <text x="93" y="558">iconbadge: badged 6 image(s) with #d97757</text>
+      <text x="93" y="586">icon updated</text>
+      <text x="28" y="614"><tspan fill="#d97757">[7/8]</tspan> Re-signing (ad-hoc)...</text>
+      <text x="93" y="642">signature OK</text>
+      <text x="93" y="670">asar integrity Resources/app.asar: <tspan fill="#56b877">ok</tspan> (4a69c516a4af…)</text>
+      <text x="28" y="698"><tspan fill="#d97757">[8/8]</tspan> Registering with Launch Services...</text>
+      <text x="28" y="754"><tspan fill="#56b877" font-weight="700">Done.</tspan></text>
+      <text x="28" y="782">Launch:  open -a "Claude 2"</text>
+      <text x="28" y="810">Data:    ~/Library/Application Support/Claude 2</text>
+    </g>
+    <line x1="28" y1="846" x2="972" y2="846" stroke="#33333a"/>
+    <text x="28" y="880" font-size="16" fill="#9d9da8">Every step that could leave a clone that crashes aborts instead of printing Done.</text>
+  </g>
+
+  <!-- panel 2: the window -->
+  <g transform="translate(1080,40)">
+    <rect width="736" height="494" rx="14" fill="#161618" stroke="#33333a"/>
+    <circle cx="26" cy="24" r="7" fill="#e5686a"/><circle cx="48" cy="24" r="7" fill="#e0a83b"/><circle cx="70" cy="24" r="7" fill="#56b877"/>
+    <text x="368" y="29" font-size="15" fill="#9d9da8" text-anchor="middle">Mac App Dualizer</text>
+    <!-- hero -->
+    <rect x="68" y="52" width="40" height="40" rx="10" fill="url(#icon)" stroke="#33333a"/>
+    <g transform="translate(68,52) scale(0.8333)">
+      <rect x="7" y="7" width="26" height="26" rx="6" fill="none" stroke="#6c6c78" stroke-width="2.5"/>
+      <rect x="15" y="15" width="26" height="26" rx="6" fill="#d97757" fill-opacity="0.14" stroke="#d97757" stroke-width="2.5"/>
+    </g>
+    <text x="120" y="70" font-size="19" font-weight="700" fill="#f4f4f7">App Dualizer</text>
+    <text x="120" y="88" font-size="11.5" fill="#9d9da8">Run two independent copies of a Mac app — separate data, separate login.</text>
+    <!-- step 1 -->
+    <rect x="68" y="106" width="600" height="116" rx="12" fill="#232327" stroke="#33333a"/>
+    <circle cx="88" cy="126" r="9" fill="#d97757" fill-opacity="0.14"/>
+    <text x="88" y="130" font-size="10" font-weight="700" fill="#d97757" text-anchor="middle">1</text>
+    <text x="104" y="130" font-size="13" font-weight="600" fill="#f4f4f7">Choose an app</text>
+    <rect x="84" y="142" width="568" height="68" rx="9" fill="#1d1d20" stroke="#45454e" stroke-dasharray="4 3"/>
+    <rect x="98" y="154" width="44" height="44" rx="10" fill="url(#icon)" stroke="#33333a"/>
+    <g transform="translate(98,154) scale(0.9167)">
+      <rect x="7" y="7" width="26" height="26" rx="6" fill="none" stroke="#6c6c78" stroke-width="2.5"/>
+      <rect x="15" y="15" width="26" height="26" rx="6" fill="#d97757" fill-opacity="0.14" stroke="#d97757" stroke-width="2.5"/>
+    </g>
+    <text x="154" y="170" font-size="14" font-weight="600" fill="#f4f4f7">Claude</text>
+    <text x="154" y="185" font-size="11" fill="#6c6c78">com.anthropic.claudefordesktop</text>
+    <rect x="154" y="191" width="140" height="15" rx="7.5" fill="#56b877" fill-opacity="0.16"/>
+    <text x="224" y="202" font-size="10" font-weight="600" fill="#56b877" text-anchor="middle">Electron · full isolation</text>
+    <rect x="584" y="163" width="56" height="24" rx="7" fill="#34343b"/>
+    <text x="612" y="179" font-size="12" fill="#f4f4f7" text-anchor="middle">Change</text>
+    <!-- step 2 -->
+    <rect x="68" y="232" width="600" height="194" rx="12" fill="#232327" stroke="#33333a"/>
+    <circle cx="88" cy="252" r="9" fill="#d97757" fill-opacity="0.14"/>
+    <text x="88" y="256" font-size="10" font-weight="700" fill="#d97757" text-anchor="middle">2</text>
+    <text x="104" y="256" font-size="13" font-weight="600" fill="#f4f4f7">Name &amp; options</text>
+    <text x="84" y="280" font-size="12" fill="#9d9da8">Clone name</text>
+    <rect x="81" y="285" width="574" height="42" rx="11" fill="none" stroke="#d97757" stroke-opacity="0.25" stroke-width="3"/>
+    <rect x="84" y="288" width="568" height="36" rx="9" fill="#1d1d20" stroke="#d97757" stroke-width="1.5"/>
+    <text x="97" y="311" font-size="14" fill="#f4f4f7">Claude 2</text>
+    <rect x="84" y="336" width="568" height="40" rx="9" fill="#1d1d20"/>
+    <rect x="96" y="348" width="14" height="14" rx="3" fill="#d97757"/>
+    <path d="M 99 355 l 3 3 l 6 -6" fill="none" stroke="#ffffff" stroke-width="2"/>
+    <text x="118" y="353" font-size="13" font-weight="500" fill="#f4f4f7">Separate data directory</text>
+    <text x="118" y="368" font-size="11.5" fill="#9d9da8">Gives the clone its own login. Recommended.</text>
+    <rect x="84" y="382" width="568" height="40" rx="9" fill="#1d1d20"/>
+    <rect x="96" y="394" width="14" height="14" rx="3" fill="#1d1d20" stroke="#6c6c78"/>
+    <text x="118" y="399" font-size="13" font-weight="500" fill="#f4f4f7">Remove custom URL schemes</text>
+    <text x="118" y="414" font-size="11.5" fill="#9d9da8">Stops the clone from competing for deep links.</text>
+    <!-- action -->
+    <rect x="68" y="436" width="600" height="36" rx="9" fill="#d97757"/>
+    <text x="368" y="459" font-size="14" font-weight="600" fill="#ffffff" text-anchor="middle">Clone app</text>
+  </g>
+
+  <!-- panel 3: dualize list -->
+  <g transform="translate(1080,574)">
+    <rect width="736" height="380" rx="14" fill="#161618" stroke="#33333a"/>
+    <circle cx="26" cy="24" r="7" fill="#e5686a"/><circle cx="48" cy="24" r="7" fill="#e0a83b"/><circle cx="70" cy="24" r="7" fill="#56b877"/>
+    <text x="368" y="29" font-size="15" fill="#9d9da8" text-anchor="middle">dualize</text>
+    <g font-family="SF Mono, Menlo, Monaco, Courier New, monospace" font-size="16" fill="#cfcfd6" >
+      <text x="28" y="70"><tspan fill="#56b877">$</tspan> node bin/dualize.js list</text>
+      <text x="47" y="116">Claude 2</text>
+      <text x="66" y="139">status : <tspan fill="#56b877">ok</tspan></text>
+      <text x="66" y="162">from   : /Applications/Claude.app</text>
+      <text x="66" y="185">app    : /Applications/Claude 2.app</text>
+      <text x="66" y="208">data   : ~/Library/Application Support/Claude 2</text>
+      <text x="47" y="254">Slack Work</text>
+      <text x="66" y="277">status : <tspan fill="#e0a83b">needs repair (asar integrity hash)</tspan></text>
+      <text x="66" y="300">from   : /Applications/Slack.app</text>
+      <text x="66" y="323">app    : /Applications/Slack Work.app</text>
+      <text x="66" y="346">data   : ~/Library/Application Support/Slack Work</text>
+    </g>
+  </g>
+</svg>

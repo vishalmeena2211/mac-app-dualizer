@@ -1,276 +1,288 @@
-# Mac App Dualizer
+<div align="center">
 
-<p>
-  <img alt="platform" src="https://img.shields.io/badge/platform-macOS-000000?logo=apple&logoColor=white" />
-  <img alt="license" src="https://img.shields.io/badge/license-MIT-blue" />
-  <img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-56b877" />
+<img src=".github/readme/banner.png" alt="mac-app-dualizer: one Mac app, cloned into two, each with its own data folder and its own login" width="100%">
+
+<br>
+
+**Clone a macOS app into a second copy that keeps its own data folder and its own login.<br>Written so two Claude accounts could run on one Mac at the same time. Works on any Electron app.**
+
+<br>
+
+[![macOS](https://img.shields.io/badge/macOS-Apple_Silicon_or_Intel-161618?logo=apple&logoColor=white)](#run-it-on-your-machine)
+[![Bash 3.2](https://img.shields.io/badge/Bash-3.2,_as_macOS_ships_it-d97757?logo=gnubash&logoColor=white)](clone-app.sh)
+[![Node.js 18+](https://img.shields.io/badge/Node.js-18+,_built--ins_only-d97757?logo=nodedotjs&logoColor=white)](src/asar-tools.js)
+[![Electron GUI](https://img.shields.io/badge/GUI-Electron_31-161618?logo=electron&logoColor=white)](#the-window)
+[![CI](https://img.shields.io/badge/CI-shellcheck_and_syntax_checks-161618?logo=githubactions&logoColor=white)](.github/workflows/ci.yml)
+<br>
+[![Status](https://img.shields.io/badge/status-built_for_Claude,_other_Electron_apps_should_work-d97757)](#how-far-to-trust-it)
+[![Not affiliated](https://img.shields.io/badge/not_affiliated-with_Anthropic_or_any_app_you_clone-161618)](#the-rules-it-keeps)
+[![Licence: MIT](https://img.shields.io/badge/licence-MIT-d97757)](#licence)
+
+[What it does](#what-it-does) · [The rules it keeps](#the-rules-it-keeps) · [How far to trust it](#how-far-to-trust-it) · [How it works](#how-it-works) · [Run it yourself](#run-it-on-your-machine) · [When something goes wrong](#when-something-goes-wrong)
+
+</div>
+
+<br>
+
+<p align="center">
+  <img src=".github/readme/screens.png" alt="Three panels: the terminal output of clone-app.sh turning Claude into Claude 2 in eight steps; the GUI window with Claude dropped in and named; and dualize list showing one healthy clone and one that needs repair after an update" width="100%">
 </p>
-
-Run **two independent instances** of a macOS app at the same time — each with its
-own data directory and its own login. Great for using two accounts of the same
-app (two Claude, Slack, Notion, or Discord logins) side by side.
-
-- **CLI** — `clone-app.sh`, a shell script plus a few small dependency-free Node
-  helpers in `src/` (no `npm install` needed).
-- **GUI** — a small Electron app: drag in an app, name the clone, click **Clone**.
-
-Works best with **Electron apps** (Claude, Slack, Notion, VS Code, Discord,
-Figma, …) — which happens to be most of the "only one account per app" apps
-people want to double.
-
-> ⚠️ Clone only apps you're licensed to use, and respect each app's Terms of
-> Service. This is a tool for legitimate multi-account / multi-profile use on
-> your own machine.
-
----
 
 ## Why this exists
 
-This started with a very specific itch: **running more than one Claude desktop
-instance — each signed into a different account — on the same Mac.**
+The Claude desktop app, which hosts Claude Code, runs many sessions at once but signs in to one account per install. A personal account and a work account cannot both be open. `open -n -a "Claude"` does not help: the second window shares the same data folder, so it shares the same login, and the two fight over lock files.
 
-The Claude desktop app (which hosts **Claude Code**) supports many parallel
-*sessions*, but only **one signed-in account** per install. If you have, say, a
-personal account and a work/org account, there's no built-in way to be logged
-into both at once.
+A real second instance needs four things. A bundle identifier and name of its own, so macOS treats it as another app. A data folder of its own, so it keeps its own cookies, session and login. Its Electron helper apps renamed to match, or it will not start. And a valid code signature after all of that, because macOS refuses a bundle whose signature no longer matches its contents.
 
-The usual `open -n -a "Claude"` trick doesn't help either: a second copy shares
-the **same data directory**, so it shares the same login and fights over lock
-files. To get a *genuinely* separate instance you need a distinct identity, a
-separate data directory, matching Electron helper names, and a valid
-re-signature. We worked that out by hand for Claude, then generalized it into
-this tool so anyone can do it for any app — starting with Claude itself.
+That was worked out by hand for Claude, then turned into this tool so it works for any app. One command, or a small window you drag an app onto.
 
-See **[Example: two Claude instances](#example-two-claude-instances-different-accounts)** below.
+## What it does
 
----
+| | |
+|---|---|
+| **Makes a second app** | Copies the bundle and gives it a new bundle identifier (the original plus a slug of the name, so `Claude 2` becomes `com.anthropic.claudefordesktop.claude-2`) and a new display name. macOS sees two apps. |
+| **Gives it a data folder of its own** | For Electron apps, a small snippet at the top of the app's main script points `userData` and the logs at `~/Library/Application Support/<Clone Name>`. The clone keeps its own cookies, session and login. |
+| **Keeps the clone able to start** | Renames the Electron helper apps and their executables, repacks `app.asar` with exactly the files the original kept in `app.asar.unpacked`, restores their permissions, recomputes the `ElectronAsarIntegrity` hash in `Info.plist`, re-signs the bundle ad hoc, verifies both the signature and the hash, and registers the app with Launch Services. |
+| **Tells the two apart** | Draws a coloured badge on the clone's icon, so the Dock and Cmd-Tab show which is which. The colour is picked from the name, or set with `--tint`. |
+| **Remembers every clone** | Each clone is recorded in `~/.config/mac-app-dualizer/clones.json`. `dualize list` shows every clone with its health: code signature and asar hash. |
+| **Repairs after an update** | An app update overwrites the clone's bundle. `dualize repair` builds the clone again from the current app. The data folder, and the login in it, are untouched. |
+| **Removes cleanly** | `dualize remove` deletes the app and keeps the data folder. Add `--purge` to delete the data too. |
+| **Handles deep links** | By default the clone keeps the app's URL schemes, so `open -a "Claude 2" "claude://..."` reaches the clone. `--strip-schemes` removes them from the clone instead. |
+| **Has a window too** | A small Electron app: drag an app in, see its icon, bundle id and whether it is Electron, name the clone, click Clone, then Launch or Show in Finder. |
+| **Fails safe** | A failed clone deletes its half-written bundle. A clone whose integrity hash could not be updated, or whose main script is an ES module, is not written at all. |
 
-## What a real second instance needs
+## The rules it keeps
 
-1. A **distinct bundle identifier** and name, so macOS treats it as a separate app.
-2. A **separate data directory**, so it stores its own cookies / session / login.
-3. A **valid code signature** after those edits (macOS won't launch a bundle
-   whose signature no longer matches its contents).
-4. *(Electron)* the renamed app's **helper apps renamed to match**, or it won't
-   launch.
+- **Clone only apps you are licensed to use, within each app's terms of service.** This is for two accounts or two profiles on your own Mac.
+- **Nothing leaves your Mac.** The tool copies and re-signs a bundle on disk. It sends nothing anywhere and never asks for `sudo`.
+- **The CLI needs no `npm install`.** The helpers use Node built-ins only. `@electron/asar` and `pngjs` are fetched on demand with `npx`. `npm install` is only for the GUI.
+- **Your login survives repair.** Repair deletes and rebuilds the app bundle, never the data folder. Remove keeps the data folder unless you say `--purge`.
+- **`productName` is left alone.** Only the bundle name changes, so the app's user agent and any "is this the desktop app?" check on a login page still pass.
+- **A clone that would crash is not written.** After signing, the asar hash is checked once more. A mismatch aborts the clone instead of printing "Done".
+- **Not affiliated** with Anthropic or with any app you clone.
 
-This tool does all four.
+## How far to trust it
 
----
+> [!IMPORTANT]
+> **It was built for Claude, and Claude is where it has been exercised.** The screens above show a real `Claude 2` clone on macOS 15, which `dualize list` reports healthy on 7 October 2026. Other Electron apps (Slack, Notion, VS Code, Discord, Figma) go through the same eight steps and should work, but each app is its own test. Try a low-stakes app first, and read the log.
 
-## Requirements
+What it cannot do yet:
 
-- macOS (Apple Silicon or Intel)
-- **Xcode Command Line Tools** — for `codesign`: `xcode-select --install`
-- **Node.js** (18+) — needed for the data-isolation step on Electron apps
-  (provides [`@electron/asar`](https://github.com/electron/asar)) and to run the GUI
-
-The CLI needs **no `npm install`**: it fetches `@electron/asar` on demand through
-`npx`, and everything else it does is Node built-ins only. `npm install` is only
-required for the GUI.
-
----
-
-## Quick start — CLI
-
-```bash
-git clone https://github.com/vishalmeena2211/mac-app-dualizer.git
-cd mac-app-dualizer
-chmod +x clone-app.sh
-
-# Clone any Electron app into a second, independent copy
-./clone-app.sh --source "/Applications/Slack.app" --name "Slack Work"
-
-# Launch it
-open -a "Slack Work"
-```
-
-Its data lives in `~/Library/Application Support/Slack Work`, completely separate
-from the original — so you can log into a **different account**.
-
-### Options
-
-| Flag | Meaning |
-|------|---------|
-| `--source PATH` | The `.app` to clone (required) |
-| `--name NAME` | Display name for the clone, e.g. `"Slack Work"` (required) |
-| `--dest-dir DIR` | Where to write the clone (default: same folder as the source) |
-| `--no-isolate` | Don't inject a separate data directory (Electron only) |
-| `--strip-schemes` | Remove the app's custom URL schemes from the clone (see below) |
-| `--tint "#RRGGBB"` | Icon badge color (default: auto-picked from the name) |
-| `--no-tint` | Don't badge the clone's icon |
-
-### Managing clones
-
-Every clone is recorded in `~/.config/mac-app-dualizer/clones.json`, so you can
-manage them with the `dualize` command:
-
-```bash
-node bin/dualize.js list                 # show clones + health (signature + asar hash)
-node bin/dualize.js repair "Slack Work"  # re-apply after an app auto-update (keeps the login)
-node bin/dualize.js repair --all         # repair every unhealthy clone
-node bin/dualize.js remove "Slack Work"  # delete the clone (add --purge to also delete its data)
-```
-
-**Distinct icons.** Each clone gets a small colored badge on its icon (auto-picked
-from its name, or set with `--tint`) so you can tell instances apart in the Dock
-and Cmd-Tab. If the new icon doesn't refresh immediately, run `killall Dock`.
-
-**Repair after updates.** When an app auto-updates it overwrites the clone's
-bundle (reverting the rename/injection/signature). `dualize repair` detects this
-and re-applies the patch — your **data directory / login is untouched**.
-
----
-
-## Quick start — GUI
-
-```bash
-npm install
-npm start
-```
-
-1. **Drag an app** onto the window (or click **Browse**). Its real icon, bundle
-   id, and an *Electron / Native* badge appear.
-2. Give the clone a name.
-3. Click **Clone app**, watch the log, then **Launch clone**.
-
----
-
-## Example: two Claude instances (different accounts)
-
-```bash
-./clone-app.sh --source "/Applications/Claude.app" --name "Claude 2"
-open -a "Claude 2"
-```
-
-You'll now have the original **Claude** and a second **Claude 2**, each with its
-own data directory — so each can be signed into a different account, both running
-at once (including separate **Claude Code** sessions).
-
-**Logging the clone into a second account.** Because a magic link only
-authenticates the app that opens it, and macOS routes `claude://` deep links to
-your *original* app, deliver the login link to the clone explicitly:
-
-```bash
-# Fire a magic-link callback straight into the clone
-open -a "Claude 2" "claude://magic-link#<token-from-your-login-email>"
-```
-
-Or simpler: start the **"Continue with email"** flow *inside the Claude 2
-window* — since that instance initiated it, completing the link logs it in.
-
-> Heads-up: keep the clone's `productName` unchanged (the tool does this for
-> you). Renaming it makes the web login flow think it's a browser and show the
-> marketing site instead of the app sign-in.
-
----
+- **Native, non-Electron apps** get a new identity only. Sandboxed apps get a fresh container from that; other apps may still share data with the original.
+- **Apps whose main script is an ES module** are refused for data isolation. `--no-isolate` gives a separately named copy that shares the original's data.
+- **Auto-updates revert the clone.** Run `dualize repair` afterwards.
+- **The signature is ad hoc.** That is fine on the Mac that built the clone. A clone moved to another Mac needs its quarantine flag cleared (see below).
+- **No automated test clones an app.** CI runs shellcheck, `bash -n`, `node --check` and a `package.json` parse, nothing more.
 
 ## How it works
 
-For each clone, the script:
-
-1. **Copies** the bundle with `ditto`.
-2. **Rewrites the identity** — a unique `CFBundleIdentifier` (original id +
-   a slug of the clone name) and a new `CFBundleName` / `CFBundleDisplayName`.
-3. *(Electron)* **Renames the helper apps** in `Contents/Frameworks`
-   (`<App> Helper*.app` → `<Clone> Helper*.app`) and their executables, because
-   Electron locates helpers by the main app's name.
-4. *(Electron)* **Injects an isolated data directory** by inserting a tiny
-   snippet at the top of the app's main script inside `app.asar` (right after its
-   `"use strict"` directive, so the bundle keeps running in strict mode):
-   ```js
-   require('electron').app.setPath(
-     'userData',
-     require('path').join(app.getPath('appData'), '<Clone Name>')
-   );
-   ```
-   It then repacks `app.asar` **keeping exactly the original set of files in
-   `app.asar.unpacked`, with their original permissions** (native modules and
-   helper binaries can't run from inside an archive, and they must stay
-   executable) and **recomputes the `ElectronAsarIntegrity` hash** in
-   `Info.plist`. Apps built with Electron's asar-integrity fuse — Claude is one —
-   refuse to start if that hash is stale, so the script verifies it again after
-   signing and fails instead of producing a clone that would crash.
-   *`productName` is deliberately left unchanged, so the app's user-agent and any
-   server-side "is this the desktop app?" detection keep working — important for
-   web-based login flows.*
-5. **Re-signs** the bundle ad-hoc (`codesign --force --deep --sign -`).
-6. **Registers** it with Launch Services (`lsregister -f`).
-
----
-
-## URL schemes & deep links (e.g. magic-link login)
-
-Many apps register a custom URL scheme (`claude://`, `slack://`) to receive deep
-links — including magic-link / SSO login callbacks. Two apps can't both be *the*
-default handler for one scheme, so:
-
-- **Keep schemes (default):** the clone also registers the scheme. Target a
-  *specific* instance with `open -a "Claude 2" "claude://…"`, which routes to the
-  clone regardless of the system default.
-- **`--strip-schemes`:** the clone won't touch the original's deep links at all.
-  Use this if you only want normal in-app use with zero interference.
-
----
-
-## Caveats
-
-- **Auto-updates revert the clone.** When the app updates itself it overwrites the
-  bundle, wiping the rename/injection/signature. Just re-run the tool afterward —
-  the clone's **data directory (your login) is untouched**.
-- **Gatekeeper.** Ad-hoc signing is fine for locally-built clones. If you move a
-  clone to another Mac, clear quarantine:
-  `xattr -dr com.apple.quarantine "/Applications/Claude 2.app"`.
-- **Non-Electron apps.** The tool changes the identity (which gives *sandboxed*
-  apps a fresh container) but can't guarantee data isolation for arbitrary native
-  apps.
-- **Not affiliated** with Anthropic or any app you clone. Use responsibly and
-  within each app's license and Terms of Service.
-
----
-
-## Troubleshooting
-
-**The clone crashes the instant it opens.** The crash report says
-`EXC_BREAKPOINT (SIGTRAP)` in `Electron Framework` a fraction of a second after
-launch (Console shows `Integrity check failed for asar archive`). The app checks
-its `app.asar` against the `ElectronAsarIntegrity` hash in `Info.plist`, and the
-clone's hash is stale. Versions of this tool before September 2026 could leave it
-stale when the CLI was run from a bare `git clone` — the hash step depended on
-`@electron/asar` being `require()`-able and silently skipped when it wasn't
-([#1](https://github.com/vishalmeena2211/mac-app-dualizer/issues/1)). Pull the
-latest version, then rebuild the clone; its data directory (your login) is kept:
-
-```bash
-node bin/dualize.js list                 # "needs repair (asar integrity hash)"
-node bin/dualize.js repair "Claude 2"    # re-applies the patch on top of the current app
+```mermaid
+flowchart LR
+  subgraph you ["What you give"]
+    APP["/Applications/Claude.app"]
+    NAME["A name: Claude 2"]
+  end
+  subgraph tool ["In this repository"]
+    GUI["Electron window<br/>src/main.js"]
+    DZ["dualize<br/>bin/dualize.js"]
+    SH["clone-app.sh<br/>copy, rename, badge, sign, register"]
+    AT["src/asar-tools.js<br/>inject snippet, repack, integrity hash"]
+    REG["src/registry.js<br/>~/.config/mac-app-dualizer/clones.json"]
+  end
+  subgraph out ["What you get"]
+    CLONE["/Applications/Claude 2.app<br/>own bundle id, re-signed"]
+    DATA[("~/Library/Application Support/Claude 2<br/>cookies, session, login")]
+  end
+  APP --> SH
+  NAME --> SH
+  GUI --> SH
+  DZ -->|clone, repair| SH
+  SH --> AT --> CLONE
+  SH --> REG
+  DZ -->|list, remove| REG
+  CLONE -->|first launch| DATA
 ```
 
-If the clone predates the registry (`dualize list` doesn't know it), delete the
-`.app` and run `clone-app.sh` again with the same name.
+`clone-app.sh` does the work in eight numbered steps and prints each one. `dualize` and the window both call it; neither does anything the script cannot do on its own.
 
-**"could not inject the data-isolation snippet".** The app's main script isn't a
-CommonJS file the tool knows how to patch (e.g. an ES-module entry). Clone with
-`--no-isolate` to get a separately-identified copy that still shares the
-original's data, and please open an issue naming the app.
+| Part | What it is |
+|---|---|
+| [`clone-app.sh`](clone-app.sh) | The eight steps: copy with `ditto`, new identity with PlistBuddy, rename helpers, isolate data, badge the icon, `codesign --force --deep --sign -`, check the hash, `lsregister`. Bash 3.2, the one macOS ships |
+| [`src/asar-tools.js`](src/asar-tools.js) | Reads the asar header, lists what the original kept unpacked, builds the matching `--unpack` pattern, inserts the isolation snippet after `"use strict"`, restores file modes, and recomputes and checks `ElectronAsarIntegrity`. Node built-ins only |
+| [`src/iconbadge.js`](src/iconbadge.js) | Draws a coloured circle with a white ring on every PNG of the iconset, with `pngjs` |
+| [`src/registry.js`](src/registry.js) | The JSON registry at `~/.config/mac-app-dualizer/clones.json` |
+| [`bin/dualize.js`](bin/dualize.js) | `clone`, `list`, `repair`, `remove`. Health is `codesign --verify --deep` plus the asar hash |
+| [`src/main.js`](src/main.js), [`src/renderer/`](src/renderer) | The Electron window. Context isolation on, no Node in the renderer. It streams the script's log into the window |
+| [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | shellcheck at warning level, `bash -n`, `node --check` on every script, and a `package.json` parse |
 
----
+## Run it on your machine
 
-## Uninstall a clone
+You need macOS (Apple Silicon or Intel), the Xcode Command Line Tools for `codesign`, and Node.js 18 or newer.
 
 ```bash
-rm -rf "/Applications/Claude 2.app"
-rm -rf "$HOME/Library/Application Support/Claude 2"
+xcode-select --install
 ```
 
----
+```bash
+git clone https://github.com/vishalmeena2211/mac-app-dualizer.git && cd mac-app-dualizer
+```
+
+```bash
+chmod +x clone-app.sh
+```
+
+```bash
+./clone-app.sh --source "/Applications/Claude.app" --name "Claude 2"
+```
+
+```bash
+open -a "Claude 2"
+```
+
+You now have **Claude** and **Claude 2**, each with its own data folder, so each can sign in to a different account and both can run at once, with separate Claude Code sessions. The clone's data lives in `~/Library/Application Support/Claude 2`. The same command works for other Electron apps:
+
+```bash
+./clone-app.sh --source "/Applications/Slack.app" --name "Slack Work"
+```
+
+### Every option
+
+| Flag | Meaning |
+|---|---|
+| `--source PATH` | The `.app` to clone (required) |
+| `--name NAME` | Display name for the clone, such as `"Claude 2"` (required). No quotes or backslashes |
+| `--dest-dir DIR` | Where to write the clone (default: the folder the source is in) |
+| `--no-isolate` | Do not give the clone its own data folder (Electron only) |
+| `--strip-schemes` | Remove the app's custom URL schemes from the clone |
+| `--tint "#RRGGBB"` | Badge colour for the clone's icon (default: picked from the name) |
+| `--no-tint` | Do not badge the clone's icon |
+
+### Managing clones
+
+```bash
+node bin/dualize.js list
+```
+
+```bash
+node bin/dualize.js repair "Claude 2"
+```
+
+```bash
+node bin/dualize.js repair --all
+```
+
+```bash
+node bin/dualize.js remove "Claude 2"
+```
+
+`list` shows each clone's status: `ok`, `missing`, `needs repair (code signature)` or `needs repair (asar integrity hash)`. `repair` rebuilds the clone from the current app with the same options and keeps the login. `repair --all` skips healthy clones. `remove` keeps the data folder; add `--purge` to delete it too. `node bin/dualize.js clone --source ... --name ...` is the same as running the script.
+
+### The window
+
+```bash
+npm install
+```
+
+```bash
+npm start
+```
+
+Drag an app onto the window, or click **Browse**. Its icon, bundle id and an *Electron* or *Native* badge appear. Give the clone a name, choose whether it gets its own data folder and whether to drop URL schemes, click **Clone app**, watch the log, then **Launch clone**. The window does not yet expose `--tint` or `--dest-dir`.
+
+### Signing the clone into a second account
+
+A magic link signs in the app that opens it, and macOS routes `claude://` links to the original app. So either start the **Continue with email** flow inside the Claude 2 window, which makes that instance the one that completes it, or hand the link to the clone by name:
+
+```bash
+open -a "Claude 2" "claude://magic-link#<token-from-your-login-email>"
+```
+
+Keep the clone's `productName` unchanged. The tool does this for you. Renaming it makes the web login flow treat the app as a browser and show the marketing site instead of the sign-in.
+
+## When something goes wrong
+
+**The clone crashes the instant it opens.** The crash report says `EXC_BREAKPOINT (SIGTRAP)` in `Electron Framework`, and Console shows `Integrity check failed for asar archive`. The app checks `app.asar` against the `ElectronAsarIntegrity` hash in `Info.plist`, and the clone's hash is stale. Versions of this tool before September 2026 could leave it stale when run from a bare `git clone`: the hash step needed `@electron/asar` to be `require()`-able and silently skipped when it was not ([#1](https://github.com/vishalmeena2211/mac-app-dualizer/issues/1)). Pull the latest version and rebuild the clone. Its data folder, and your login, are kept:
+
+```bash
+node bin/dualize.js repair "Claude 2"
+```
+
+If the clone predates the registry and `dualize list` does not know it, delete the `.app` and run `clone-app.sh` again with the same name.
+
+**"could not inject the data-isolation snippet".** The app's main script is not a CommonJS file the tool knows how to patch, such as an ES-module entry. Clone with `--no-isolate` to get a separately named copy that shares the original's data, and please open an issue naming the app.
+
+**The Dock still shows the old icon.** Run `killall Dock`.
+
+**A clone copied from another Mac will not open.** The ad-hoc signature is fine where it was made. Elsewhere, clear quarantine:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Claude 2.app"
+```
+
+**Removing a clone by hand**, without `dualize`:
+
+```bash
+rm -rf "/Applications/Claude 2.app" "$HOME/Library/Application Support/Claude 2"
+```
+
+## Repository layout
+
+| Path | What is in it |
+|---|---|
+| [`clone-app.sh`](clone-app.sh) | The CLI. Everything else calls it |
+| [`bin/`](bin) | `dualize`: list, repair and remove clones |
+| [`src/`](src) | The Node helpers (`asar-tools.js`, `iconbadge.js`, `registry.js`) and the Electron window (`main.js`, `preload.js`, `renderer/`) |
+| [`.github/`](.github) | CI, issue and pull request templates, and the README images |
+| [`CHANGELOG.md`](CHANGELOG.md) | What changed, including the fix for [#1](https://github.com/vishalmeena2211/mac-app-dualizer/issues/1) |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md), [`SECURITY.md`](SECURITY.md) | How to help, and how to report a vulnerability privately |
+
+## Roadmap
+
+- [x] A CLI that clones, isolates data, re-signs and registers
+- [x] An Electron window: drag, name, clone, launch
+- [x] Correct asar integrity hash from a bare `git clone` ([#1](https://github.com/vishalmeena2211/mac-app-dualizer/issues/1))
+- [x] Registry, `list`, `repair` and `remove`
+- [x] Distinct icon badges
+- [x] CI: shellcheck and syntax checks
+- [ ] Apps whose main script is an ES module
+- [ ] `--tint` and `--dest-dir` in the window
+- [ ] A packaged `.app` of the window, built with `electron-builder`
+- [ ] Better data isolation for native, non-Electron apps
+- [ ] A CI job that clones a real Electron app
 
 ## Contributing
 
-Issues and PRs are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Good first
-areas: broader native-app support, an `electron-builder` packaged `.app`, and
-testing against more Electron apps.
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md) first. Test against a low-stakes Electron app before a critical one. Before a pull request, `bash -n clone-app.sh`, `shellcheck --severity=warning clone-app.sh` and `node --check` on each script must pass; that is what CI runs. Keep the script Bash 3.2 compatible and keep `src/asar-tools.js` free of third-party packages, so the CLI keeps working from a bare `git clone`. Say which app, macOS version and chip you tested on.
 
-## License
+Please do not propose features aimed at circumventing licensing, DRM or an app's terms of service.
 
-MIT — see [LICENSE](LICENSE).
+## Credits
+
+- **Electron** for the asar format and [`@electron/asar`](https://github.com/electron/asar), which extracts and repacks the archive.
+- **[pngjs](https://github.com/pngjs/pngjs)** for reading and writing the icon PNGs.
+- Apple's `codesign`, `PlistBuddy`, `ditto`, `iconutil` and `lsregister`, which do the parts that need macOS.
+
+## Licence
+
+**[MIT](LICENSE).** Use it, change it and share it, keeping the copyright notice. The apps you clone keep their own licences and terms; this tool does not change them.
+
+## Words used here
+
+| Word | What it means |
+|---|---|
+| **Clone** | A second copy of an app, with its own bundle identifier, name, icon badge and data folder |
+| **Bundle identifier** | The `CFBundleIdentifier` in `Info.plist`, such as `com.anthropic.claudefordesktop`. macOS uses it to tell apps apart |
+| **Data folder** | Electron's `userData` path, where an app keeps cookies, session and login. Normally `~/Library/Application Support/<App Name>` |
+| **`app.asar`** | The archive inside an Electron app that holds its JavaScript. The isolation snippet goes at the top of the main script inside it |
+| **`app.asar.unpacked`** | Files the app keeps outside the archive, because native modules and helper binaries cannot run from inside one. The clone keeps the same set, with the same permissions |
+| **Integrity hash** | `ElectronAsarIntegrity` in `Info.plist`: a SHA-256 of the archive header. Apps built with Electron's integrity fuse, Claude among them, refuse to start if it does not match |
+| **Helper apps** | The `<App> Helper*.app` bundles in `Contents/Frameworks`. Electron finds them by the main app's name, so a renamed app needs renamed helpers |
+| **Ad-hoc signature** | `codesign --sign -`: a signature with no developer identity. Valid on the Mac that made it |
+| **URL scheme** | A custom link prefix such as `claude://` that an app registers to receive deep links, including magic-link logins |
+| **Registry** | `~/.config/mac-app-dualizer/clones.json`, the list of clones this tool made and the options each was made with |
+
+<br>
+
+<div align="center">
+<sub>Made for one Mac with two Claude accounts. Clone only what you are licensed to use.</sub>
+</div>
