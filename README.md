@@ -70,7 +70,7 @@ What it cannot do yet:
 
 - **Native, non-Electron apps** get a new identity only. Sandboxed apps get a fresh container from that; other apps may still share data with the original.
 - **Apps whose main script is an ES module** are refused for data isolation. `--no-isolate` gives a separately named copy that shares the original's data.
-- **Auto-updates revert the clone.** Run `dualize repair` afterwards.
+- **Clones do not update themselves.** The clone is ad hoc signed, so its built-in updater cannot install anything (Claude stays on "needs the latest desktop app … Updating…"), and an update that does land reverts the clone. Let the original app update, then run `dualize repair`; `dualize list` flags a clone whose version is behind the app.
 - **The signature is ad hoc.** That is fine on the Mac that built the clone. A clone moved to another Mac needs its quarantine flag cleared (see below).
 - **No automated test clones an app.** CI runs shellcheck, `bash -n`, `node --check` and a `package.json` parse, nothing more.
 
@@ -175,7 +175,7 @@ node bin/dualize.js repair --all
 node bin/dualize.js remove "Claude 2"
 ```
 
-`list` shows each clone's status: `ok`, `missing`, `needs repair (code signature)` or `needs repair (asar integrity hash)`. `repair` rebuilds the clone from the current app with the same options and keeps the login. `repair --all` skips healthy clones. `remove` keeps the data folder; add `--purge` to delete it too. `node bin/dualize.js clone --source ... --name ...` is the same as running the script.
+`list` shows each clone's status: `ok`, `missing`, `needs repair (code signature)`, `needs repair (asar integrity hash)` or `needs repair (outdated: clone X, app Y)`. `repair` rebuilds the clone from the current app with the same options and keeps the login. `repair --all` skips healthy clones. `remove` keeps the data folder; add `--purge` to delete it too. `node bin/dualize.js clone --source ... --name ...` is the same as running the script.
 
 ### The window
 
