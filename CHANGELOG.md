@@ -21,6 +21,11 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - Issue/PR templates, `SECURITY.md`, and this changelog.
 
 ### Fixed
+- **Outdated clones reported as healthy.** A clone is ad-hoc signed, so its own
+  updater can never install an update; Claude clones sat on "needs the latest
+  desktop app … Updating…" forever while `dualize list` said `ok`. Health now
+  compares the clone's version with the source app's and reports
+  `needs repair (outdated: clone X, app Y)`, which `repair --all` picks up.
 - **Clones crashed on launch with `EXC_BREAKPOINT` (SIGTRAP)** for apps built with
   Electron's asar-integrity fuse — Claude among them — whenever the CLI was run from a
   bare `git clone` ([#1]). The `ElectronAsarIntegrity` hash step used

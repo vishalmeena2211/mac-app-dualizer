@@ -55,13 +55,30 @@ function getEntry(name) {
   return readRegistry().find((e) => e.name === name);
 }
 
+// CFBundleShortVersionString (falling back to CFBundleVersion), or null.
+function bundleVersion(appPath) {
+  const plist = path.join(appPath, 'Contents', 'Info.plist');
+  for (const key of ['CFBundleShortVersionString', 'CFBundleVersion']) {
+    const r = spawnSync('/usr/libexec/PlistBuddy', ['-c', `Print :${key}`, plist], { encoding: 'utf8' });
+    const v = r.status === 0 ? r.stdout.trim() : '';
+    if (v) return v;
+  }
+  return null;
+}
+
 // 'missing' | 'ok' | 'needs repair (<why>)'
 //
 // Besides the code signature, check the ElectronAsarIntegrity hash: an app
 // auto-update (or an older version of this tool) can leave Info.plist pointing
 // at a hash that no longer matches app.asar, which makes fuse-protected apps
 // such as Claude crash the instant they launch.
-function health(appPath) {
+//
+// Finally, compare the clone's version with the source app's. A clone is
+// ad-hoc signed, so its own built-in updater can never install an update:
+// Claude, for one, then sits on "needs the latest desktop app … Updating…"
+// forever. The source app keeps updating itself, so a version mismatch means
+// the clone must be rebuilt from it.
+function health(appPath, sourcePath) {
   if (!fs.existsSync(appPath)) return 'missing';
   if (spawnSync('codesign', ['--verify', '--deep', appPath]).status !== 0) return 'needs repair (code signature)';
   try {
@@ -69,6 +86,11 @@ function health(appPath) {
     if (entries && entries.some((e) => e.exists && !e.ok)) return 'needs repair (asar integrity hash)';
   } catch {
     /* not an Electron app, or unreadable asar: nothing more to check */
+  }
+  if (sourcePath && fs.existsSync(sourcePath)) {
+    const cloneV = bundleVersion(appPath);
+    const sourceV = bundleVersion(sourcePath);
+    if (cloneV && sourceV && cloneV !== sourceV) return `needs repair (outdated: clone ${cloneV}, app ${sourceV})`;
   }
   return 'ok';
 }
@@ -82,7 +104,7 @@ function list() {
   console.log('');
   for (const e of entries) {
     console.log(`  ${e.name}`);
-    console.log(`    status : ${health(e.dest)}`);
+    console.log(`    status : ${health(e.dest, e.source)}`);
     console.log(`    from   : ${e.source}`);
     console.log(`    app    : ${e.dest}`);
     console.log(`    data   : ${dataDir(e.name)}`);
@@ -130,7 +152,7 @@ function repair() {
   }
 
   for (const e of targets) {
-    if (all && health(e.dest) === 'ok') {
+    if (all && health(e.dest, e.source) === 'ok') {
       console.log(`✓ ${e.name}: healthy, skipping`);
       continue;
     }
@@ -154,7 +176,7 @@ function help() {
   console.log(`dualize — manage macOS app clones
 
   dualize clone --source <app> --name <name> [options]   Create a clone
-  dualize list                                            Show recorded clones + health (signature, asar hash)
+  dualize list                                            Show recorded clones + health (signature, asar hash, version)
   dualize repair "<name>"                                 Re-apply after an auto-update
   dualize repair --all                                    Repair every unhealthy clone
   dualize remove "<name>" [--purge]                       Delete a clone (--purge = its data too)
