@@ -39,11 +39,20 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   so the app bundle keeps running in strict mode.
 - The icon badge no longer silently skips when `pngjs` isn't installed locally; it is
   resolved from the `npx` cache as well.
+- **Isolated clones of apps on newer Electron crashed on launch** with
+  `Failed to get integrity for validatable asar archive: Resources/app.asar` (Claude
+  desktop 5.x on Electron 45, [#5]). Those builds also embed a SHA-256 of the whole
+  `ElectronAsarIntegrity` dictionary in the Electron Framework binary, so updating the
+  hash in `Info.plist` alone made the dictionary fail that check. `update-integrity` now
+  rewrites the embedded digest as well (before signing), and `check-integrity` and
+  `dualize list` report a clone whose digest is stale as `needs repair (asar integrity
+  digest)` instead of `ok`.
 - `dualize list` / `dualize repair --all` health now also checks the asar integrity hash.
 - Unsupported entry points (ES-module mains) are reported instead of producing a clone
   that shares the original's data.
 
 [#1]: https://github.com/vishalmeena2211/mac-app-dualizer/issues/1
+[#5]: https://github.com/vishalmeena2211/mac-app-dualizer/issues/5
 
 ## [1.0.0]
 

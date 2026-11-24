@@ -175,7 +175,7 @@ node bin/dualize.js repair --all
 node bin/dualize.js remove "Claude 2"
 ```
 
-`list` shows each clone's status: `ok`, `missing`, `needs repair (code signature)` or `needs repair (asar integrity hash)`. `repair` rebuilds the clone from the current app with the same options and keeps the login. `repair --all` skips healthy clones. `remove` keeps the data folder; add `--purge` to delete it too. `node bin/dualize.js clone --source ... --name ...` is the same as running the script.
+`list` shows each clone's status: `ok`, `missing`, `needs repair (code signature)`, `needs repair (asar integrity hash)` or `needs repair (asar integrity digest)`. `repair` rebuilds the clone from the current app with the same options and keeps the login. `repair --all` skips healthy clones. `remove` keeps the data folder; add `--purge` to delete it too. `node bin/dualize.js clone --source ... --name ...` is the same as running the script.
 
 ### The window
 
@@ -275,7 +275,7 @@ Please do not propose features aimed at circumventing licensing, DRM or an app's
 | **Data folder** | Electron's `userData` path, where an app keeps cookies, session and login. Normally `~/Library/Application Support/<App Name>` |
 | **`app.asar`** | The archive inside an Electron app that holds its JavaScript. The isolation snippet goes at the top of the main script inside it |
 | **`app.asar.unpacked`** | Files the app keeps outside the archive, because native modules and helper binaries cannot run from inside one. The clone keeps the same set, with the same permissions |
-| **Integrity hash** | `ElectronAsarIntegrity` in `Info.plist`: a SHA-256 of the archive header. Apps built with Electron's integrity fuse, Claude among them, refuse to start if it does not match |
+| **Integrity hash** | `ElectronAsarIntegrity` in `Info.plist`: a SHA-256 of the archive header. Apps built with Electron's integrity fuse, Claude among them, refuse to start if it does not match. Newer Electron also embeds a SHA-256 of the whole dictionary in the Electron Framework binary; the tool rewrites both |
 | **Helper apps** | The `<App> Helper*.app` bundles in `Contents/Frameworks`. Electron finds them by the main app's name, so a renamed app needs renamed helpers |
 | **Ad-hoc signature** | `codesign --sign -`: a signature with no developer identity. Valid on the Mac that made it |
 | **URL scheme** | A custom link prefix such as `claude://` that an app registers to receive deep links, including magic-link logins |
