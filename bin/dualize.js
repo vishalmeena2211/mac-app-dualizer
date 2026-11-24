@@ -67,6 +67,7 @@ function health(appPath) {
   try {
     const { entries } = asarTools.bundleIntegrity(appPath);
     if (entries && entries.some((e) => e.exists && !e.ok)) return 'needs repair (asar integrity hash)';
+    if (entries && !asarTools.bundleIntegrityDigest(appPath, entries).ok) return 'needs repair (asar integrity digest)';
   } catch {
     /* not an Electron app, or unreadable asar: nothing more to check */
   }

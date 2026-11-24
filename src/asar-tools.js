@@ -32,9 +32,11 @@
 //       Copy file permissions (the executable bit) from the original's unpacked
 //       files onto the repacked ones; `asar extract`/`pack` do not preserve them.
 //   node asar-tools.js update-integrity <App.app>
-//       Recompute every ElectronAsarIntegrity hash in Info.plist from the bundle's asar(s).
+//       Recompute every ElectronAsarIntegrity hash in Info.plist from the bundle's asar(s),
+//       and the digest of that dictionary embedded in the Electron Framework binary.
 //   node asar-tools.js check-integrity <App.app>
-//       Exit 1 if any ElectronAsarIntegrity hash does not match its archive.
+//       Exit 1 if any ElectronAsarIntegrity hash does not match its archive, or the
+//       embedded digest does not match the dictionary.
 //
 const fs = require('node:fs');
 const path = require('node:path');
@@ -300,7 +302,85 @@ function updateIntegrity(appPath) {
     e.ok = true;
     e.updated = true;
   }
-  return { entries };
+  const digest = bundleIntegrityDigest(appPath, entries, { write: true });
+  return { entries, digest };
+}
+
+// --- Integrity-dictionary digest (Electron Framework binary) --------------------
+//
+// Newer Electron (Claude's 45.x build, for one) also embeds a SHA-256 of the whole
+// ElectronAsarIntegrity dictionary in the Electron Framework binary, in a slot
+// that packaging tools fill in (shell/common/asar/integrity_digest.mm):
+//   sentinel[32] "AGbevlPCksUGKNL8TSn7wGmJEuJsXb2A" | used u8 | version u8 | digest[32]
+// At startup Electron hashes the Info.plist dictionary and, if the slot is in use,
+// refuses any dictionary whose digest differs: the app dies with
+//   FATAL … Failed to get integrity for validatable asar archive: Resources/app.asar
+// So changing a hash in Info.plist is not enough; the slot must be rewritten too
+// (before code signing, since it changes the framework binary). See issue #5.
+//
+// Digest v1 = SHA-256 over, for each key in code-unit order: key, algorithm, hash.
+
+const DIGEST_SENTINEL = Buffer.from('AGbevlPCksUGKNL8TSn7wGmJEuJsXb2A', 'latin1');
+const DIGEST_SIZE = 32;
+
+function electronFrameworkBinary(appPath) {
+  const p = path.join(appPath, 'Contents', 'Frameworks', 'Electron Framework.framework', 'Electron Framework');
+  try {
+    return fs.realpathSync(p);
+  } catch {
+    return null;
+  }
+}
+
+function integrityDictionaryDigest(entries) {
+  const h = crypto.createHash('sha256');
+  // Default sort compares UTF-16 code units, same as NSLiteralSearch in Electron.
+  for (const e of [...entries].sort((a, b) => (a.relPath < b.relPath ? -1 : a.relPath > b.relPath ? 1 : 0))) {
+    h.update(e.relPath, 'utf8');
+    h.update(e.algorithm, 'utf8');
+    h.update(e.hash, 'utf8');
+  }
+  return h.digest();
+}
+
+// Every slot in the binary (one per architecture slice of a universal build).
+function findDigestSlots(buf) {
+  const slots = [];
+  for (let i = buf.indexOf(DIGEST_SENTINEL); i !== -1; i = buf.indexOf(DIGEST_SENTINEL, i + 1)) {
+    const at = i + DIGEST_SENTINEL.length;
+    if (at + 2 + DIGEST_SIZE > buf.length) break;
+    slots.push({ offset: at + 2, used: buf[at] !== 0, version: buf[at + 1] });
+  }
+  return slots;
+}
+
+// { binary, slots: [{ offset, used, version, ok }], expected, ok }
+// `ok` is true when there is nothing to validate (no framework, no slot, slot unused).
+function bundleIntegrityDigest(appPath, entries, { write = false } = {}) {
+  const binary = electronFrameworkBinary(appPath);
+  if (!binary || !entries) return { binary, slots: [], expected: null, ok: true };
+  const buf = fs.readFileSync(binary);
+  const expected = integrityDictionaryDigest(entries);
+  const slots = findDigestSlots(buf);
+  let dirty = false;
+  for (const s of slots) {
+    if (!s.used) {
+      s.ok = true;
+      continue;
+    }
+    if (s.version !== 1) {
+      throw new Error(`unsupported asar integrity digest version ${s.version} in ${path.basename(binary)}`);
+    }
+    s.ok = buf.compare(expected, 0, DIGEST_SIZE, s.offset, s.offset + DIGEST_SIZE) === 0;
+    if (!s.ok && write) {
+      expected.copy(buf, s.offset);
+      s.ok = true;
+      s.updated = true;
+      dirty = true;
+    }
+  }
+  if (dirty) fs.writeFileSync(binary, buf);
+  return { binary, slots, expected: expected.toString('hex'), ok: slots.every((s) => s.ok) };
 }
 
 // --- CLI ---------------------------------------------------------------------------
@@ -369,7 +449,7 @@ function main(argv) {
 
     case 'update-integrity': {
       need(1);
-      const { entries } = updateIntegrity(args[0]);
+      const { entries, digest } = updateIntegrity(args[0]);
       if (!entries) {
         console.log('no ElectronAsarIntegrity key in Info.plist; nothing to update');
         return 0;
@@ -377,6 +457,10 @@ function main(argv) {
       for (const e of entries) {
         if (!e.exists) console.log(`${e.relPath}: not present in bundle, left as is`);
         else console.log(`${e.relPath}: hash ${e.updated ? 'updated to' : 'already'} ${e.hash}`);
+      }
+      if (digest.slots.some((s) => s.used)) {
+        const updated = digest.slots.some((s) => s.updated);
+        console.log(`Electron Framework: integrity digest ${updated ? 'updated to' : 'already'} ${digest.expected}`);
       }
       return 0;
     }
@@ -389,6 +473,13 @@ function main(argv) {
         return 0;
       }
       let bad = 0;
+      const digest = bundleIntegrityDigest(args[0], entries);
+      if (!digest.ok) {
+        bad++;
+        console.error(`asar integrity digest: MISMATCH — Electron Framework does not hold ${digest.expected}`);
+      } else if (digest.slots.some((s) => s.used)) {
+        console.log(`asar integrity digest: ok (${digest.expected.slice(0, 12)}…)`);
+      }
       for (const e of entries) {
         if (!e.exists) {
           console.log(`${e.relPath}: listed in Info.plist but not present in bundle`);
@@ -436,4 +527,5 @@ module.exports = {
   injectIsolation,
   bundleIntegrity,
   updateIntegrity,
+  bundleIntegrityDigest,
 };
